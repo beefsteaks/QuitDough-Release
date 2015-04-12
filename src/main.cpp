@@ -8,6 +8,7 @@
 #include "db.h"
 #include "txdb.h"
 #include "net.h"
+#include "main.h"
 #include "init.h"
 #include "ui_interface.h"
 #include "smessage.h"
@@ -965,22 +966,54 @@ int64_t GetProofOfWorkReward(int64_t nFees)
         {
 				nSubsidy =  1 * COIN;
 		}
-		
+		else if(pindexBest->nHeight > 100000) 
+        {
+				nSubsidy =  20 * COIN;
+		}		
 		
     return nSubsidy + nFees;
 }
 
 const int DAILY_BLOCKCOUNT =  1440;
+
+const int POS_BLOCK_REWARD_FIX_100K = 100000;
+const int POS_BLOCK_REWARD_FIX_200K = 200000;
+const int POS_BLOCK_REWARD_FIX_300K = 300000;
 // miner's coin stake reward based on coin age spent (coin-days)
-int64_t GetProofOfStakeReward(int64_t nCoinAge, int64_t nFees)
+int64_t GetProofOfStakeReward(const CBlockIndex* pindex, int64_t nCoinAge, int64_t nFees)
 {
     int64_t nRewardCoinYear;
-
+	int64_t nRewardCoinYear_15;
+	int64_t nRewardCoinYear_10;
+	int64_t nRewardCoinYear_5;
+	
     nRewardCoinYear = MAX_MINT_PROOF_OF_STAKE;
-
+	nRewardCoinYear_15 = MAX_MINT_PROOF_OF_STAKE_15;
+	nRewardCoinYear_10 = MAX_MINT_PROOF_OF_STAKE_10;
+	nRewardCoinYear_5 = MAX_MINT_PROOF_OF_STAKE_5;
+	
     int64_t nSubsidy = nCoinAge * nRewardCoinYear / 365 / COIN;
 
-
+    if(pindex->nHeight <= POS_BLOCK_REWARD_FIX_100K)
+	{
+		int64_t nSubsidy = nCoinAge * nRewardCoinYear / 365 / COIN;
+         return nSubsidy + nFees;
+    }
+	else if (pindex->nHeight > POS_BLOCK_REWARD_FIX_100K && pindex->nHeight <= POS_BLOCK_REWARD_FIX_200K) 
+	{
+        int64_t nSubsidy = nCoinAge * nRewardCoinYear_15 / 365 / COIN;
+        return nSubsidy;
+    }
+	else if (pindex->nHeight > POS_BLOCK_REWARD_FIX_200K && pindex->nHeight <= POS_BLOCK_REWARD_FIX_300K) 
+	{
+        int64_t nSubsidy = nCoinAge * nRewardCoinYear_10 / 365 / COIN;
+        return nSubsidy;
+    }
+	else if (pindex->nHeight > POS_BLOCK_REWARD_FIX_300K ) 
+	{
+        int64_t nSubsidy = nCoinAge * nRewardCoinYear_5 / 365 / COIN;
+        return nSubsidy;
+    }
     if (fDebug && GetBoolArg("-printcreation"))
         printf("GetProofOfStakeReward(): create=%s nCoinAge=%"PRId64"\n", FormatMoney(nSubsidy).c_str(), nCoinAge);
 
@@ -1424,6 +1457,12 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
 
 bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 {
+	// Get prev block index  
+	map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hashPrevBlock);  
+		if (mi == mapBlockIndex.end())  
+			return DoS(10, error("AcceptBlock() : prev block not found"));  
+		CBlockIndex* pindexPrev = (*mi).second;  
+
     // Check it again in case a previous version let a bad block in, but skip BlockSig checking
     if (!CheckBlock(!fJustCheck, !fJustCheck, false))
         return false;
@@ -1522,7 +1561,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
         if (!vtx[1].GetCoinAge(txdb, nCoinAge))
             return error("ConnectBlock() : %s unable to get coin age for coinstake", vtx[1].GetHash().ToString().substr(0,10).c_str());
 
-        int64_t nCalculatedStakeReward = GetProofOfStakeReward(nCoinAge, nFees);
+        int64_t nCalculatedStakeReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees);
 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%"PRId64" vs calculated=%"PRId64")", nStakeReward, nCalculatedStakeReward));

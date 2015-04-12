@@ -1279,18 +1279,21 @@ void MapPort()
 
 
 
-
-
-
-
 // DNS seeds
 // Each pair gives a source name and a seed name.
 // The first name is used as information source for addrman.
 // The second name should resolve to a list of seed addresses.
 
 static const char *strDNSSeed[][2] = {
-    {"104.219.248.181", "104.219.248.181"} //Main QuitDough Seed Node
-};
+    {"104.219.248.181", "104.219.248.181"}, //Main QuitDough Seed Node
+	{"37.59.21.58", "37.59.21.58"},
+	{"5.85.1.183", "5.85.1.183"},
+	{"46.165.209.140", "46.165.209.140"},
+	{"192.99.21.103", "192.99.21.103"},
+	{"194.44.203.196", "194.44.203.196"},
+	{"85.142.57.55", "85.142.57.55"},
+	
+	};
 
 void ThreadDNSAddressSeed(void* parg)
 {
